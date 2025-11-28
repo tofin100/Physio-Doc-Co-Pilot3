@@ -226,8 +226,30 @@
       gap: 18px;
     }
 
+    /* Vertikale Trennlinie in der Mitte zwischen den beiden Blöcken */
+    .grid-patient > div:first-child {
+      border-right: 1px solid var(--border);
+      padding-right: 16px;
+    }
+
+    .grid-patient > div:last-child {
+      padding-left: 16px;
+    }
+
     @media (max-width: 900px) {
-      .grid-patient { grid-template-columns: minmax(0, 1fr); }
+      .grid-patient {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .grid-patient > div:first-child {
+        border-right: none;
+        padding-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+      }
+      .grid-patient > div:last-child {
+        padding-left: 0;
+      }
     }
 
     .input-row { display: flex; gap: 8px; }
@@ -513,6 +535,16 @@
         <div>
           <h3 class="section-title">Patienten &amp; Sitzungen</h3>
 
+          <!-- Suche über Patientenliste -->
+          <div style="margin-bottom:8px;">
+            <label for="patient-search-input">Patienten suchen</label>
+            <input
+              id="patient-search-input"
+              type="text"
+              placeholder="Name oder Diagnose suchen…"
+            />
+          </div>
+
           <!-- von app.js befüllt -->
           <ul id="patient-list"></ul>
 
@@ -588,6 +620,16 @@
             <span>Alltags­einschränkung:</span>
             <input id="function-slider" type="range" min="0" max="10" />
             <span><strong id="function-value">5</strong>/10</span>
+          </div>
+        </div>
+
+        <!-- KLARER ABSATZ vor den Tabs -->
+        <div style="margin:14px 0 8px; padding-top:8px; border-top:1px solid var(--border-strong);">
+          <div style="font-size:13px; font-weight:600; color:var(--accent-dark); margin-bottom:2px;">
+            Strukturierte Erfassung
+          </div>
+          <div class="meta">
+            Anamnese, Befund, Diagnose, Therapieplan, Verlauf und Epikrise – jeweils per Diktat oder Eingabe.
           </div>
         </div>
 
@@ -761,59 +803,81 @@
   <script src="icd10-codes.js"></script>
   <script src="app.js"></script>
 
-  <!-- Tabs + Tab-Füllstatus (nur Layout/UX, app.js bleibt unverändert) -->
+  <!-- Tabs, Tab-Füllstatus & Patientensuche (nur Layout/UX, app.js bleibt unverändert) -->
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      /* Tabs umschalten */
-      const tabButtons = document.querySelectorAll(".tab-label");
-      const tabPanels  = document.querySelectorAll(".tab-panel");
+  document.addEventListener("DOMContentLoaded", function () {
+    // --- Tabs umschalten ---
+    var tabButtons = document.querySelectorAll(".tab-label");
+    var tabPanels  = document.querySelectorAll(".tab-panel");
 
-      tabButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const target = btn.dataset.tab;
-          tabButtons.forEach((b) => b.classList.remove("active"));
-          tabPanels.forEach((p) => p.classList.remove("active"));
-          btn.classList.add("active");
-          const panel = document.querySelector(`.tab-panel[data-panel="${target}"]`);
-          if (panel) panel.classList.add("active");
-        });
+    tabButtons.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var target = btn.getAttribute("data-tab");
+
+        // aktive Klasse von allen Buttons/Panels entfernen
+        tabButtons.forEach(function (b) { b.classList.remove("active"); });
+        tabPanels.forEach(function (p) { p.classList.remove("active"); });
+
+        // aktuellen Button aktiv setzen
+        btn.classList.add("active");
+
+        // passendes Panel aktiv setzen
+        var panel = document.querySelector('.tab-panel[data-panel="' + target + '"]');
+        if (panel) {
+          panel.classList.add("active");
+        }
       });
-
-      /* Tabs markieren, wenn Text drin steht (Tippen + Diktat) */
-      const map = [
-        { id: "speech-anamnese",  tab: "anamnese" },
-        { id: "speech-befund",    tab: "befund" },
-        { id: "speech-diagnose",  tab: "diagnose" },
-        { id: "speech-therapieplan", tab: "therapieplan" },
-        { id: "speech-verlauf",   tab: "verlauf" },
-        { id: "speech-epikrise",  tab: "epikrise" },
-        { id: "speech-notes",     tab: "notes" }
-      ];
-
-      function updateTabFilledState() {
-        map.forEach(({ id, tab }) => {
-          const textarea = document.getElementById(id);
-          const btn = document.querySelector(`.tab-label[data-tab="${tab}"]`);
-          if (!textarea || !btn) return;
-          if (textarea.value && textarea.value.trim().length > 0) {
-            btn.classList.add("filled");
-          } else {
-            btn.classList.remove("filled");
-          }
-        });
-      }
-
-      map.forEach(({ id }) => {
-        const textarea = document.getElementById(id);
-        if (!textarea) return;
-        textarea.addEventListener("input", updateTabFilledState);
-      });
-
-      /* Alle 1,5 Sekunden prüfen – deckt auch Diktat (Wertänderung per JS) ab */
-      setInterval(updateTabFilledState, 1500);
-
-      updateTabFilledState();
     });
-  </script>
+
+    // --- Tabs markieren, wenn Text drin steht (Tippen + Diktat) ---
+    var tabTextMap = [
+      { id: "speech-anamnese",    tab: "anamnese" },
+      { id: "speech-befund",      tab: "befund" },
+      { id: "speech-diagnose",    tab: "diagnose" },
+      { id: "speech-therapieplan",tab: "therapieplan" },
+      { id: "speech-verlauf",     tab: "verlauf" },
+      { id: "speech-epikrise",    tab: "epikrise" },
+      { id: "speech-notes",       tab: "notes" }
+    ];
+
+    function updateTabFilledState() {
+      tabTextMap.forEach(function (entry) {
+        var textarea = document.getElementById(entry.id);
+        var btn = document.querySelector('.tab-label[data-tab="' + entry.tab + '"]');
+        if (!textarea || !btn) return;
+
+        if (textarea.value && textarea.value.trim().length > 0) {
+          btn.classList.add("filled");
+        } else {
+          btn.classList.remove("filled");
+        }
+      });
+    }
+
+    // bei Eingabe im jeweiligen Textfeld aktualisieren
+    tabTextMap.forEach(function (entry) {
+      var textarea = document.getElementById(entry.id);
+      if (!textarea) return;
+      textarea.addEventListener("input", updateTabFilledState);
+    });
+
+    // zusätzlich alle 1,5s prüfen (damit auch Diktat-Updates abgedeckt sind)
+    setInterval(updateTabFilledState, 1500);
+    updateTabFilledState();
+
+    // --- Patientensuche – filtert die angezeigte Liste im Scroll-Fenster ---
+    var patientSearchInput = document.getElementById("patient-search-input");
+    if (patientSearchInput) {
+      patientSearchInput.addEventListener("input", function () {
+        var q = patientSearchInput.value.trim().toLowerCase();
+        var items = document.querySelectorAll("#patient-list li");
+        items.forEach(function (li) {
+          var text = li.textContent.toLowerCase();
+          li.style.display = text.indexOf(q) !== -1 ? "" : "none";
+        });
+      });
+    }
+  });
+</script>
 </body>
 </html>
